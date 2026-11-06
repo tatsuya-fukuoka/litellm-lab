@@ -1,0 +1,43 @@
+# 実測ラボ用の設定。上流はすべてモックLLM（実キー不要）。
+# 課金額は、モックが返す usage(100/100トークン) × 下の単価 で決まる。
+#   1リクエスト = 100*0.00001 + 100*0.00003 = 0.004 USD
+model_list:
+  # 通常のモデル（予算・フォールバックの検証対象）
+  - model_name: main-llm
+    litellm_params:
+      model: openai/mock-primary
+      api_base: os.environ/MOCK_PRIMARY_BASE
+      api_key: dummy
+      input_cost_per_token: 0.00001
+      output_cost_per_token: 0.00003
+  # main-llm の落ち先
+  - model_name: backup-llm
+    litellm_params:
+      model: openai/mock-backup
+      api_base: os.environ/MOCK_BACKUP_BASE
+      api_key: dummy
+      input_cost_per_token: 0.00001
+      output_cost_per_token: 0.00003
+  # オーバーヘッド計測用（フォールバック設定の影響を受けない別名）
+  - model_name: bench-llm
+    litellm_params:
+      model: openai/mock-primary
+      api_base: os.environ/MOCK_PRIMARY_BASE
+      api_key: dummy
+
+litellm_settings:
+  # 【既定 = 実測で安定した設定】num_retries: 0 + disable_cooldowns: true
+  #   フォールバックが即座に効く(約85ms)。代わりに、死んだプライマリへ毎回1回は試行が飛ぶ。
+  #   クールダウンを有効にした設定は configs/cooldown_pitfall.yaml（問題の再現用）を参照。
+  num_retries: 0            # リトライしない（1回だと障害中の全リクエストが約2秒遅くなった）
+  request_timeout: 5        # 5秒を超えたらタイムアウト扱い（slowモードの検証用）
+  fallbacks: [{"main-llm": ["backup-llm"]}]
+  set_verbose: false
+  json_logs: true
+
+router_settings:
+  # クールダウン有効時は、バックアップまで巻き込まれて 429 になる事象を観測したため無効化している。
+  disable_cooldowns: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

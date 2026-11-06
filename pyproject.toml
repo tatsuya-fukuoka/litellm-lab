@@ -1,0 +1,9 @@
+[project]
+name = "litellm-lab"
+version = "0.1.0"
+description = "LiteLLM Proxy の予算・フォールバック・オーバーヘッドを実測する検証キット"
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.27,<1"]
+
+[tool.uv]
+package = false

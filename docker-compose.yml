@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.envに設定してください}
+      POSTGRES_DB: litellm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm -d litellm"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mock-primary:
+    build: ./mock_llm
+    environment:
+      MOCK_NAME: mock-primary
+      MOCK_BASE_DELAY_MS: "50"
+      MOCK_WORKERS: ${MOCK_WORKERS:-1}
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:${MOCK_PRIMARY_PORT:-19001}:9000"
+
+  mock-backup:
+    build: ./mock_llm
+    environment:
+      MOCK_NAME: mock-backup
+      MOCK_BASE_DELAY_MS: "50"
+      MOCK_WORKERS: ${MOCK_WORKERS:-1}
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:${MOCK_BACKUP_PORT:-19002}:9000"
+
+  litellm:
+    image: ${LITELLM_IMAGE:?.envにイメージ(固定タグ)を設定してください}
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "${LITELLM_WORKERS:-1}"]
+    volumes:
+      - ${LITELLM_CONFIG:-./litellm_config.yaml}:/app/config.yaml:ro
+    environment:
+      DATABASE_URL: postgresql://litellm:${POSTGRES_PASSWORD:?.envに設定してください}@db:5432/litellm
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?.envに設定してください}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY:?.envに設定してください}
+      LITELLM_LOG: ${LITELLM_LOG:-ERROR}
+      MOCK_PRIMARY_BASE: http://mock-primary:9000/v1
+      MOCK_BACKUP_BASE: http://mock-backup:9000/v1
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:${LITELLM_PORT:-4000}:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+      mock-primary:
+        condition: service_started
+      mock-backup:
+        condition: service_started
+
+volumes:
+  pgdata:
