@@ -93,4 +93,4 @@ Windows（PowerShell）では `.env.example` を手でコピーし、鍵を自�
 - イメージ・ライブラリは固定して使います（2026年3月にLiteLLMのPyPIパッケージが改ざんされた事例があります）。
 
 ## ライセンス
-MIT（[LICENSE](LICENSE)）。LICENSE の `[your name]` は公開前に置き換えてください。
+MIT（[LICENSE](LICENSE)）。
